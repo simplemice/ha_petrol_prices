@@ -1,0 +1,26 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Thailand Petrol Prices",
+        "description": "Add the Thailand Petrol Prices integration to monitor live fuel prices from motorist.co.th for Bangkok and surrounding provinces."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Only one instance of Thailand Petrol Prices can be configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Thailand Petrol Prices Options",
+        "data": {
+          "update_interval": "Update interval (seconds)"
+        },
+        "data_description": {
+          "update_interval": "How often to fetch fresh prices. Minimum 300 s (5 min), maximum 86400 s (24 h). Default: 3600 (1 h)."
+        }
+      }
+    }
+  }
+}

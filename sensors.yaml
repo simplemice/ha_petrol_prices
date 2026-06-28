@@ -1,0 +1,134 @@
+
+template:
+  - sensor:
+      - name: Lowest 91 Gas Price
+        unique_id: 91_low_price
+        state: >
+          {% set ptt_price = states('sensor.gas_91_price_ptt') | replace('฿', '') | float(0) %}
+          {% set bcp_price = states('sensor.gas_91_price_bcp') | replace('฿', '') | float(0) %}
+          {% set shell_price = states('sensor.gas_91_price_shell') | replace('฿', '') | float(0) %}
+
+          {% if ptt_price <= bcp_price and ptt_price <= shell_price %}
+              {{ states('sensor.gas_91_price_ptt') }} at PTT Station
+          {% elif bcp_price <= ptt_price and bcp_price <= shell_price %}
+              {{ states('sensor.gas_91_price_bcp') }} at BCP Station
+          {% elif shell_price <= ptt_price and shell_price <= bcp_price %}
+              {{ states('sensor.gas_91_price_shell') }} at Shell Station
+          {% else %}
+              Something went wrong
+          {% endif %}
+  - sensor:
+      - name: Lowest 95 Gas Price
+        unique_id: 95_low_price
+        state: >
+          {% set ptt_price = states('sensor.gas_95_price_ptt') | replace('฿', '') | float(0) %}
+          {% set bcp_price = states('sensor.gas_95_price_bcp') | replace('฿', '') | float(0) %}
+          {% set shell_price = states('sensor.gas_95_price_shell') | replace('฿', '') | float(0) %}
+
+          {% if ptt_price <= bcp_price and ptt_price <= shell_price %}
+              {{ states('sensor.gas_95_price_ptt') }} at PTT Station
+          {% elif bcp_price <= ptt_price and bcp_price <= shell_price %}
+              {{ states('sensor.gas_95_price_bcp') }} at BCP Station
+          {% elif shell_price <= ptt_price and shell_price <= bcp_price %}
+              {{ states('sensor.gas_95_price_shell') }} at Shell Station
+          {% else %}
+              Something went wrong
+          {% endif %}
+
+multiscrape:
+  # Type Name
+  - resource: https://www.motorist.co.th/en/petrol-prices
+    scan_interval: 3600
+    headers:
+      User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9
+    sensor:
+      - unique_id: gas_type_name
+        name: Gas Name Type 95
+        select: "body > main > div > div.container.pb-5.fuel_comparison > div:nth-child(1) > div > div > div > div.th-fuel-table > table > tbody > tr:nth-child(2) > td.text-left.th-grade-name"
+        icon: mdi:gas-station
+        #value_template: "{{ value and value or '' }}"
+
+  - resource: https://www.motorist.co.th/en/petrol-prices
+    scan_interval: 3600
+    headers:
+      User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9
+    sensor:
+      - unique_id: gas_type_name1
+        name: Gas Name Type 91
+        select: "body > main > div > div.container.pb-5.fuel_comparison > div:nth-child(1) > div > div > div > div.th-fuel-table > table > tbody > tr:nth-child(5) > td.text-left.th-grade-name"
+        icon: mdi:gas-station
+        #value_template: "{{ value and value or '' }}"
+
+  # 91 Gas Sensors
+  - resource: https://www.motorist.co.th/en/petrol-prices
+    scan_interval: 3600
+    headers:
+      User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9
+    sensor:
+      - unique_id: gas_91_price_ptt
+        name: Gasohol 91 (PTT)
+        select: "body > main > div > div.container.pb-5.fuel_comparison > div:nth-child(1) > div > div > div > div.th-fuel-table > table > tbody > tr:nth-child(5) > td:nth-child(2)"
+        icon: mdi:gas-station
+        #value_template: "{{ value and value or '' }}"
+        device_class: enum
+
+  - resource: https://www.motorist.co.th/en/petrol-prices
+    scan_interval: 3600
+    headers:
+      User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9
+    sensor:
+      - unique_id: gas_91_price_bcp
+        name: Gasohol 91 (BCP)
+        select: "body > main > div > div.container.pb-5.fuel_comparison > div:nth-child(1) > div > div > div > div.th-fuel-table > table > tbody > tr:nth-child(5) > td:nth-child(3)"
+        icon: mdi:gas-station
+        #value_template: "{{ value and value or '' }}"
+        device_class: enum
+
+  - resource: https://www.motorist.co.th/en/petrol-prices
+    scan_interval: 3600
+    headers:
+      User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9
+    sensor:
+      - unique_id: gas_91_price_shell
+        name: Gasohol 91 (Shell)
+        select: "body > main > div > div.container.pb-5.fuel_comparison > div:nth-child(1) > div > div > div > div.th-fuel-table > table > tbody > tr:nth-child(5) > td:nth-child(4)"
+        icon: mdi:gas-station
+        #value_template: "{{ value and value or '' }}"
+        device_class: enum
+
+  # 95 Gas Sensors
+  - resource: https://www.motorist.co.th/en/petrol-prices
+    scan_interval: 3600
+    headers:
+      User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9
+    sensor:
+      - unique_id: gas_95_price_ptt
+        name: Gasohol 95 (PTT)
+        select: "body > main > div > div.container.pb-5.fuel_comparison > div:nth-child(1) > div > div > div > div.th-fuel-table > table > tbody > tr:nth-child(2) > td:nth-child(2)"
+        icon: mdi:gas-station
+        #value_template: "{{ value and value or '' }}"
+        device_class: enum
+
+  - resource: https://www.motorist.co.th/en/petrol-prices
+    scan_interval: 3600
+    headers:
+      User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9
+    sensor:
+      - unique_id: gas_95_price_bcp
+        name: Gasohol 95 (BCP)
+        select: "body > main > div > div.container.pb-5.fuel_comparison > div:nth-child(1) > div > div > div > div.th-fuel-table > table > tbody > tr:nth-child(2) > td:nth-child(3)"
+        icon: mdi:gas-station
+        #value_template: "{{ value and value or '' }}"
+        device_class: enum
+
+  - resource: https://www.motorist.co.th/en/petrol-prices
+    scan_interval: 3600
+    headers:
+      User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_2) AppleWebKit/601.3.9 (KHTML, like Gecko) Version/9.0.2 Safari/601.3.9
+    sensor:
+      - unique_id: gas_95_price_shell
+        name: Gasohol 95 (Shell)
+        select: "body > main > div > div.container.pb-5.fuel_comparison > div:nth-child(1) > div > div > div > div.th-fuel-table > table > tbody > tr:nth-child(2) > td:nth-child(4)"
+        icon: mdi:gas-station
+        #value_template: "{{ value and value or '' }}"
+        device_class: enum

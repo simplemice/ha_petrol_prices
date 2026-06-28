@@ -1,0 +1,75 @@
+name: Auto Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version from manifest
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' custom_components/thailand_petrol_prices/manifest.json)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether this version already has a tag
+        id: tag_check
+        run: |
+          if git rev-parse "refs/tags/v${{ steps.version.outputs.version }}" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract changelog section for this version
+        if: steps.tag_check.outputs.exists == 'false'
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BODY=$(awk \
+            "/^## \[${VERSION}\]/{found=1; next} /^## \[/{found=0} found{print}" \
+            CHANGELOG.md)
+          {
+            echo "body<<EOF"
+            echo "$BODY"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag
+        if: steps.tag_check.outputs.exists == 'false'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
+
+      - name: Bundle integration zip for HACS
+        if: steps.tag_check.outputs.exists == 'false'
+        run: |
+          cd custom_components
+          zip -r ../thailand_petrol_prices.zip thailand_petrol_prices/
+
+      - name: Create GitHub release
+        if: steps.tag_check.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.version.outputs.version }}"
+          name: "v${{ steps.version.outputs.version }}"
+          body: ${{ steps.changelog.outputs.body }}
+          files: thailand_petrol_prices.zip
+          draft: false
+          prerelease: false
