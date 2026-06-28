@@ -18,39 +18,53 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Read version from manifest
         id: version
         run: |
           VERSION=$(jq -r '.version' custom_components/thailand_petrol_prices/manifest.json)
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Detected version: ${VERSION}"
 
-      - name: Check whether this version already has a tag
-        id: tag_check
-        run: |
-          if git rev-parse "refs/tags/v${{ steps.version.outputs.version }}" > /dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Extract changelog section for this version
-        if: steps.tag_check.outputs.exists == 'false'
-        id: changelog
+      # Check tag and release independently so an orphaned tag still gets a release.
+      - name: Check whether tag and release already exist
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          BODY=$(awk \
-            "/^## \[${VERSION}\]/{found=1; next} /^## \[/{found=0} found{print}" \
-            CHANGELOG.md)
-          {
-            echo "body<<EOF"
-            echo "$BODY"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+
+          if git ls-remote --tags origin "refs/tags/v${VERSION}" | grep -q .; then
+            echo "tag_exists=true"  >> "$GITHUB_OUTPUT"
+            echo "Tag v${VERSION} already exists on remote."
+          else
+            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
+            echo "Tag v${VERSION} does not exist — will create it."
+          fi
+
+          if gh release view "v${VERSION}" > /dev/null 2>&1; then
+            echo "release_exists=true"  >> "$GITHUB_OUTPUT"
+            echo "Release v${VERSION} already exists — skipping."
+          else
+            echo "release_exists=false" >> "$GITHUB_OUTPUT"
+            echo "Release v${VERSION} does not exist — will create it."
+          fi
+
+      # Write changelog section to a file — avoids YAML multiline injection issues
+      # when passing the body directly in the 'with' block.
+      - name: Extract changelog section for this version
+        if: steps.check.outputs.release_exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          awk \
+            "/^## \[${VERSION}\]/{found=1; next} found && /^## \[/{exit} found{print}" \
+            CHANGELOG.md > /tmp/release_notes.md
+          echo "--- Release notes ---"
+          cat /tmp/release_notes.md
 
       - name: Create and push tag
-        if: steps.tag_check.outputs.exists == 'false'
+        if: steps.check.outputs.tag_exists == 'false'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -58,18 +72,18 @@ jobs:
           git push origin "v${{ steps.version.outputs.version }}"
 
       - name: Bundle integration zip for HACS
-        if: steps.tag_check.outputs.exists == 'false'
+        if: steps.check.outputs.release_exists == 'false'
         run: |
           cd custom_components
           zip -r ../thailand_petrol_prices.zip thailand_petrol_prices/
 
       - name: Create GitHub release
-        if: steps.tag_check.outputs.exists == 'false'
+        if: steps.check.outputs.release_exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "v${{ steps.version.outputs.version }}"
           name: "v${{ steps.version.outputs.version }}"
-          body: ${{ steps.changelog.outputs.body }}
+          body_path: /tmp/release_notes.md
           files: thailand_petrol_prices.zip
           draft: false
           prerelease: false
