@@ -181,23 +181,6 @@ template:
 
 ---
 
-## Migrating from the multiscrape sensors.yaml
-
-If you were using the `multiscrape` + `template` approach from `sensors.yaml`, the new entity IDs map like this:
-
-| Old entity ID | New entity ID |
-|---|---|
-| `sensor.gasohol_91_price_ptt` | `sensor.thailand_petrol_gasohol_91_ptt` |
-| `sensor.gasohol_91_price_bcp` | `sensor.thailand_petrol_gasohol_91_bcp` |
-| `sensor.gasohol_91_price_shell` | `sensor.thailand_petrol_gasohol_91_shell` |
-| `sensor.gasohol_95_price_ptt` | `sensor.thailand_petrol_gasohol_95_ptt` |
-| Lowest 91 template sensor | `sensor.thailand_petrol_gasohol_91_lowest` |
-| Lowest 95 template sensor | `sensor.thailand_petrol_gasohol_95_lowest` |
-
-The new sensors return numeric values (e.g. `34.36`) instead of formatted strings (e.g. `฿34.36 at PTT Station`), making them easier to use in conditions and statistics.
-
----
-
 ## Troubleshooting
 
 **Sensors show "Unavailable"**  
@@ -211,22 +194,6 @@ Reduce the update interval in the integration options. Fuel prices in Thailand t
 
 **Downloading diagnostics**  
 Go to **Settings → Devices & Services → Thailand Petrol Prices → three-dot menu → Download diagnostics** and attach the file to any bug report.
-
----
-
-## Development
-
-```bash
-# Clone and set up
-git clone https://github.com/simplemice/ha_petrol_prices.git
-cd ha_petrol_prices
-
-# Copy into a dev HA instance
-cp -r custom_components/thailand_petrol_prices \
-      /path/to/homeassistant/config/custom_components/
-```
-
-Releases are created automatically when the `version` field in `manifest.json` is bumped and pushed to `main`.
 
 ---
 
