@@ -1,5 +1,12 @@
 name: Auto Release
 
+# Triggers on every push to main.
+# When the manifest version is already tagged the workflow auto-increments
+# the patch number, updates manifest.json + CHANGELOG.md, commits back with
+# "[skip ci]" to avoid re-triggering, then creates the tag and release.
+# When the developer manually bumped the manifest version the workflow uses
+# that version directly.
+
 on:
   push:
     branches:
@@ -12,78 +19,149 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
+    # Skip the auto-commit this workflow pushes back to main
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
 
     steps:
+      # ------------------------------------------------------------------ #
+      #  1. Checkout — full history so we can inspect tags and git log      #
+      # ------------------------------------------------------------------ #
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Read version from manifest
-        id: version
-        run: |
-          VERSION=$(jq -r '.version' custom_components/thailand_petrol_prices/manifest.json)
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Detected version: ${VERSION}"
-
-      # Check tag and release independently so an orphaned tag still gets a release.
-      - name: Check whether tag and release already exist
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-
-          if git ls-remote --tags origin "refs/tags/v${VERSION}" | grep -q .; then
-            echo "tag_exists=true"  >> "$GITHUB_OUTPUT"
-            echo "Tag v${VERSION} already exists on remote."
-          else
-            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
-            echo "Tag v${VERSION} does not exist — will create it."
-          fi
-
-          if gh release view "v${VERSION}" > /dev/null 2>&1; then
-            echo "release_exists=true"  >> "$GITHUB_OUTPUT"
-            echo "Release v${VERSION} already exists — skipping."
-          else
-            echo "release_exists=false" >> "$GITHUB_OUTPUT"
-            echo "Release v${VERSION} does not exist — will create it."
-          fi
-
-      # Write changelog section to a file — avoids YAML multiline injection issues
-      # when passing the body directly in the 'with' block.
-      - name: Extract changelog section for this version
-        if: steps.check.outputs.release_exists == 'false'
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          awk \
-            "/^## \[${VERSION}\]/{found=1; next} found && /^## \[/{exit} found{print}" \
-            CHANGELOG.md > /tmp/release_notes.md
-          echo "--- Release notes ---"
-          cat /tmp/release_notes.md
-
-      - name: Create and push tag
-        if: steps.check.outputs.tag_exists == 'false'
+      - name: Configure git identity
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # ------------------------------------------------------------------ #
+      #  2. Work out which version to release                               #
+      #     • Manifest version already tagged  → auto-bump patch            #
+      #     • Manifest version NOT yet tagged  → use it as-is (dev bumped) #
+      # ------------------------------------------------------------------ #
+      - name: Determine release version
+        id: version
+        run: |
+          MANIFEST_VER=$(jq -r '.version' \
+            custom_components/thailand_petrol_prices/manifest.json)
+
+          echo "Manifest version: ${MANIFEST_VER}"
+
+          if git ls-remote --tags origin "refs/tags/v${MANIFEST_VER}" \
+              | grep -q .; then
+            # Tag already exists — auto-bump the patch segment
+            IFS='.' read -ra P <<< "${MANIFEST_VER}"
+            MAJOR="${P[0]}"
+            MINOR="${P[1]}"
+            PATCH="${P[2]:-0}"
+            NEW_VER="${MAJOR}.${MINOR}.$((PATCH + 1))"
+            echo "Auto-bumping: ${MANIFEST_VER} → ${NEW_VER}"
+            echo "version=${NEW_VER}" >> "$GITHUB_OUTPUT"
+            echo "bumped=true"        >> "$GITHUB_OUTPUT"
+          else
+            # Developer bumped the version manually — use it directly
+            echo "Using manifest version as-is: ${MANIFEST_VER}"
+            echo "version=${MANIFEST_VER}" >> "$GITHUB_OUTPUT"
+            echo "bumped=false"            >> "$GITHUB_OUTPUT"
+          fi
+
+      # ------------------------------------------------------------------ #
+      #  3. (Auto-bump only) Write new version into manifest.json           #
+      # ------------------------------------------------------------------ #
+      - name: Update manifest.json with bumped version
+        if: steps.version.outputs.bumped == 'true'
+        run: |
+          NEW_VER="${{ steps.version.outputs.version }}"
+          jq --arg v "${NEW_VER}" '.version = $v' \
+            custom_components/thailand_petrol_prices/manifest.json \
+            > /tmp/manifest.json
+          mv /tmp/manifest.json \
+            custom_components/thailand_petrol_prices/manifest.json
+          echo "manifest.json updated to ${NEW_VER}"
+
+      # ------------------------------------------------------------------ #
+      #  4. Build release notes from git log since the previous tag         #
+      # ------------------------------------------------------------------ #
+      - name: Generate release notes
+        run: |
+          PREV=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "${PREV}" ]; then
+            RANGE="${PREV}..HEAD"
+          else
+            RANGE="HEAD"
+          fi
+          echo "Collecting commits: ${RANGE}"
+          {
+            echo "## What's Changed"
+            git log ${RANGE} \
+              --pretty=format:"- %s (%h)" \
+              --no-merges \
+              | grep -v '\[skip ci\]' \
+              || echo "- Updates and improvements"
+          } > /tmp/release_notes.md
+          echo "--- Release notes ---"
+          cat /tmp/release_notes.md
+
+      # ------------------------------------------------------------------ #
+      #  5. (Auto-bump only) Prepend a new section to CHANGELOG.md         #
+      # ------------------------------------------------------------------ #
+      - name: Prepend CHANGELOG entry for auto-bumped version
+        if: steps.version.outputs.bumped == 'true'
+        run: |
+          NEW_VER="${{ steps.version.outputs.version }}"
+          DATE=$(date +%Y-%m-%d)
+          {
+            head -1 CHANGELOG.md
+            printf '\n## [%s] - %s\n\n' "${NEW_VER}" "${DATE}"
+            cat /tmp/release_notes.md
+            printf '\n'
+            tail -n +2 CHANGELOG.md
+          } > /tmp/CHANGELOG.md
+          mv /tmp/CHANGELOG.md CHANGELOG.md
+
+      # ------------------------------------------------------------------ #
+      #  6. (Auto-bump only) Commit the changed files back to main          #
+      #     "[skip ci]" prevents this push from re-triggering the workflow  #
+      # ------------------------------------------------------------------ #
+      - name: Commit and push version bump
+        if: steps.version.outputs.bumped == 'true'
+        run: |
+          git add \
+            custom_components/thailand_petrol_prices/manifest.json \
+            CHANGELOG.md
+          git commit \
+            -m "chore: bump version to v${{ steps.version.outputs.version }} [skip ci]"
+          git push origin main
+
+      # ------------------------------------------------------------------ #
+      #  7. Tag the release commit and push the tag                         #
+      # ------------------------------------------------------------------ #
+      - name: Create and push tag
+        run: |
           git tag "v${{ steps.version.outputs.version }}"
           git push origin "v${{ steps.version.outputs.version }}"
 
-      - name: Bundle integration zip for HACS
-        if: steps.check.outputs.release_exists == 'false'
+      # ------------------------------------------------------------------ #
+      #  8. Build the HACS zip                                              #
+      # ------------------------------------------------------------------ #
+      - name: Bundle integration zip
         run: |
           cd custom_components
           zip -r ../thailand_petrol_prices.zip thailand_petrol_prices/
 
+      # ------------------------------------------------------------------ #
+      #  9. Publish the GitHub release                                      #
+      #     body_path avoids YAML multiline-string injection issues         #
+      # ------------------------------------------------------------------ #
       - name: Create GitHub release
-        if: steps.check.outputs.release_exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v${{ steps.version.outputs.version }}"
-          name: "v${{ steps.version.outputs.version }}"
+          tag_name:  "v${{ steps.version.outputs.version }}"
+          name:      "v${{ steps.version.outputs.version }}"
           body_path: /tmp/release_notes.md
-          files: thailand_petrol_prices.zip
-          draft: false
+          files:     thailand_petrol_prices.zip
+          draft:     false
           prerelease: false
