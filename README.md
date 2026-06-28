@@ -40,6 +40,12 @@ PTT · BCP · Shell · Caltex · IRPC · PT · Susco · Pure
 
 ---
 
+## Screenshots
+
+![PetrolPrices Thailand Screenshot](screenshots/tpp_0.png) ![PetrolPrices Thailand Screenshot](screenshots/tpp_1.png)
+
+---
+
 ## Sensors
 
 ### Station price sensors (64)
