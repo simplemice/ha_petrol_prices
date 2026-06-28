@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.1] - 2026-06-28
+
+## What's Changed
+- update workflow (dbf0f46)
+- add brand logo (970a592)
+- update workflow (ba719ae)
+- update README.md (95e65d1)
+- add screenshots, brand and change README.md (aa7586b)
+
+
 ## [1.0.0] - 2026-06-28
 
 ### Added

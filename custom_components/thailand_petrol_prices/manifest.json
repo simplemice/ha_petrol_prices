@@ -1,13 +1,17 @@
 {
   "domain": "thailand_petrol_prices",
   "name": "Thailand Petrol Prices",
-  "version": "1.0.0",
-  "codeowners": ["@simplemice"],
+  "version": "1.0.1",
+  "codeowners": [
+    "@simplemice"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/simplemice/ha_petrol_prices",
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/simplemice/ha_petrol_prices/issues",
   "quality_scale": "silver",
-  "requirements": ["beautifulsoup4>=4.12.0"]
+  "requirements": [
+    "beautifulsoup4>=4.12.0"
+  ]
 }
