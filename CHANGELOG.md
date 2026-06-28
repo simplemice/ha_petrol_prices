@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.2] - 2026-06-28
+
+## What's Changed
+- add brand icon (e509e40)
+
+
 ## [1.0.1] - 2026-06-28
 
 ## What's Changed
