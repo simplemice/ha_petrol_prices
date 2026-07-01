@@ -1,7 +1,7 @@
 {
   "domain": "thailand_petrol_prices",
   "name": "Thailand Petrol Prices",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "codeowners": [
     "@simplemice"
   ],

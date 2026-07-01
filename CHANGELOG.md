@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.3] - 2026-07-01
+
+## What's Changed
+- add readme logo (911f709)
+
+
 ## [1.0.2] - 2026-06-28
 
 ## What's Changed
