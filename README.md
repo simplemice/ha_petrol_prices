@@ -1,3 +1,9 @@
+<p align="center">
+  <a name="logo" href="http://nightdestiny.com">
+    <img src="screenshots/logo.png" alt="Thailand Petrol Prices" width="500">
+  </a>
+</p>
+
 # Thailand Petrol Prices
 
 [![HACS Default][hacs-shield]][hacs-link]
